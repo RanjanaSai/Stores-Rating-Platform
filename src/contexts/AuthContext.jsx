@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // ✅ fetch session safely inside useEffect
+    //  fetch session safely inside useEffect
     const initAuth = async () => {
       setLoading(true);
 
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
 
     initAuth();
 
-    // ✅ listen for login/logout events
+    //  listen for login/logout events
     const { data: subscription } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
