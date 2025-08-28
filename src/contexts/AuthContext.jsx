@@ -1,15 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import { getProfile } from '../services/supabaseService';
+
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
+import { getProfile } from "../services/supabaseService";
 
 const AuthContext = createContext();
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return useContext(AuthContext);
 }
 
 export function AuthProvider({ children }) {
@@ -17,59 +14,72 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // ✅ fetch session safely inside useEffect
+    const initAuth = async () => {
       setLoading(true);
-      if (session?.user) {
+
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Error fetching session:", error);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      if (data.session?.user) {
         try {
-          const profile = await getProfile(session.user.id);
-          // This is the critical fix:
-          // We must ensure a profile exists. If not, the user cannot proceed.
+          const profile = await getProfile(data.session.user.id);
           if (profile) {
-            setUser({ ...session.user, ...profile });
+            setUser({ ...data.session.user, ...profile });
           } else {
-            // This handles the case where a user is authenticated but has no profile row yet (e.g., right after signup).
-            // Safest action is to sign them out to prevent an inconsistent state.
-            console.warn(`Profile not found for user ${session.user.id}. Signing out.`);
+            console.warn("No profile found → signing out");
             await supabase.auth.signOut();
             setUser(null);
           }
-        } catch (error) {
-          console.error("Error fetching profile:", error);
-          await supabase.auth.signOut();
+        } catch (err) {
+          console.error("Error fetching profile:", err);
           setUser(null);
         }
       } else {
         setUser(null);
       }
+
       setLoading(false);
-    });
+    };
+
+    initAuth();
+
+    // ✅ listen for login/logout events
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session?.user) {
+          const profile = await getProfile(session.user.id);
+          setUser({ ...session.user, ...profile });
+        } else {
+          setUser(null);
+        }
+      }
+    );
 
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription.subscription.unsubscribe();
     };
   }, []);
 
+  // ---------- auth methods ----------
   const login = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, error: error.message };
     return { success: true };
   };
 
-  const register = async (userData) => {
-    const { name, email, address, password } = userData;
+  const register = async ({ name, email, address, password }) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          name,
-          address,
-          role: 'user' // Default role for signup
-        }
-      }
+      options: { data: { name, address, role: "user" } },
     });
     if (error) return { success: false, error: error.message };
-    // Note: You might want to inform the user to check their email for confirmation.
     return { success: true };
   };
 
@@ -78,29 +88,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const updatePassword = async (currentPassword, newPassword) => {
-    // Supabase doesn’t need currentPassword for updateUser,
-    // but keep it here so the function signature matches our call
+  const updatePassword = async (newPassword) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return { success: false, error: error.message };
     return { success: true };
   };
 
-  // Admin function to create a user
-  const createUser = async (userData) => {
-    const { name, email, address, password, role } = userData;
-    // This uses the standard signUp but specifies a role.
-    // The trigger in the DB will use this role.
+  const createUser = async ({ name, email, address, password, role }) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          name,
-          address,
-          role
-        }
-      }
+      options: { data: { name, address, role } },
     });
     if (error) return { success: false, error: error.message };
     return { success: true };
@@ -108,17 +106,24 @@ export function AuthProvider({ children }) {
 
   const value = {
     user,
+    loading,
     login,
     register,
     logout,
     updatePassword,
     createUser,
-    loading
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {loading ? (
+        <div className="h-screen flex items-center justify-center">
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }
+

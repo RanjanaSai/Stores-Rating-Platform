@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { useEffect } from 'react';
-
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -16,14 +14,3 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true
   }
 });
-
-
-useEffect(() => {
-  const fetchSession = async () => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      setUser(data.session.user);
-    }
-  };
-  fetchSession();
-}, []);
