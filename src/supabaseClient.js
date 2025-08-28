@@ -15,8 +15,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true
   }
 });
-const { data } = await supabase.auth.getSession();
-if (data.session) {
-  // user is already logged in
-}
 
+
+useEffect(() => {
+  const fetchSession = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      setUser(data.session.user);
+    }
+  };
+  fetchSession();
+}, []);
