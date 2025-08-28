@@ -71,7 +71,7 @@ src/
 
 * Setup Instructions
 1. Clone the repository
-git clone https://github.com/Ranjanasai/store-rating-App.git
+git clone https://github.com/Ranjanasai/Stores-Rating-Platform.git
 cd store-rating-App
 
 2. Install dependencies
